@@ -32,12 +32,81 @@ Do Track A first. Track B becomes easy once A is clear.
 
 ### A0) Prereqs (Windows)
 
-- **.NET SDK**: .NET 8 SDK (recommended) or .NET 6/7
-- **Docker**: Docker Desktop
-- **Local Kubernetes**: Kubernetes enabled in Docker Desktop (recommended) *or* kind/minikube
-- **kubectl**
-- **Lens/OpenLens**: installed (any recent Lens is fine for local learning; keep the **AKS version constraint** for Track B)
-- **Cursor**
+You said you **don’t have these installed yet**, so this section is the full setup.
+
+#### A0.1 Install .NET SDK
+
+- Install **.NET 8 SDK** (recommended).
+  - Fast path (Windows Package Manager):
+    - `winget install -e --id Microsoft.DotNet.SDK.8`
+  - Verify:
+    - `dotnet --version`
+
+#### A0.2 Install Docker Desktop
+
+- Install Docker Desktop.
+  - Fast path:
+    - `winget install -e --id Docker.DockerDesktop`
+- Start Docker Desktop once installed.
+- Verify:
+  - `docker version`
+
+> If Docker Desktop complains about virtualization/WSL2, you’ll need WSL enabled. Common fix is running `wsl --install` (admin) and rebooting.
+
+#### A0.3 Enable Local Kubernetes (Docker Desktop)
+
+This is the recommended “local AKS-like” setup on Windows.
+
+- Open **Docker Desktop** → **Settings** → **Kubernetes**
+- Turn on **Enable Kubernetes**
+- Click **Apply & Restart**
+- Wait until Kubernetes is ready (Docker Desktop shows it running)
+
+#### A0.4 Install `kubectl`
+
+- Fast path:
+  - `winget install -e --id Kubernetes.kubectl`
+- Verify:
+  - `kubectl version --client`
+
+When Docker Desktop Kubernetes is enabled, also verify cluster connectivity:
+
+- `kubectl config get-contexts`
+- `kubectl get nodes`
+
+If `kubectl get nodes` works, your local cluster is ready for Track A.
+
+#### A0.5 Install Lens / OpenLens
+
+You have two scenarios:
+
+- **Local learning (Track A)**: any recent Lens/OpenLens version is fine.
+- **AKS in BUPA (Track B)**: your PDF specifies **OpenLens 6.2.5**.
+
+Install approach:
+
+- If you can use winget, try searching first:
+  - `winget search lens`
+  - `winget search openlens`
+- If not available (common), install from the vendor/GitHub release:
+  - OpenLens 6.2.5 reference (PDF): `https://github.com/MuhammedKalkan/OpenLens/releases/tag/v6.2.5`
+
+After install:
+
+- Open Lens/OpenLens → confirm it launches.
+
+#### A0.6 Install Cursor (if needed)
+
+- If Cursor isn’t installed yet, install it via your standard software portal or from `https://www.cursor.com/`.
+
+---
+
+### A0) Quick verification checklist (copy/paste)
+
+- `dotnet --version`
+- `docker version`
+- `kubectl version --client`
+- `kubectl get nodes`
 
 > If your org expects a specific Lens/OpenLens version for AKS (the PDF says **OpenLens 6.2.5**), keep that for Track B. For local practice, any version works.
 
