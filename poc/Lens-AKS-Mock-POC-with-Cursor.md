@@ -32,46 +32,156 @@ Do Track A first. Track B becomes easy once A is clear.
 
 ### A0) Prereqs (Windows)
 
-- Docker Desktop (with Kubernetes enabled) *or* kind/minikube
-- `kubectl`
-- Lens/OpenLens installed (any recent Lens is fine for local learning; keep the **AKS version constraint** for Track B)
-- Cursor
+- **.NET SDK**: .NET 8 SDK (recommended) or .NET 6/7
+- **Docker**: Docker Desktop
+- **Local Kubernetes**: Kubernetes enabled in Docker Desktop (recommended) *or* kind/minikube
+- **kubectl**
+- **Lens/OpenLens**: installed (any recent Lens is fine for local learning; keep the **AKS version constraint** for Track B)
+- **Cursor**
 
 > If your org expects a specific Lens/OpenLens version for AKS (the PDF says **OpenLens 6.2.5**), keep that for Track B. For local practice, any version works.
 
 ---
 
-### A1) Create a “practice namespace” and a sample app
+### A1) Create a .NET microservice (from scratch)
 
-If you already have a sample app and YAML from `Local-Kubernetes-AKS-Mock-POC-Guide.md`, reuse it.
+We’ll build a tiny microservice with:
 
-Otherwise, do the quickest possible sample: `nginx` + service.
+- `GET /customers/{id}` (dummy JSON)
+- `GET /health/live` and `GET /health/ready` (for probes)
+- Console logging (so Lens logs are useful)
+- Config via environment variable (to practice ConfigMap)
 
-#### Cursor prompt (generate local sample YAML)
+Create a new folder (example): `BUPA/poc/lens-dotnet-poc/`
+
+#### Cursor prompt (generate .NET microservice)
 
 Copy/paste into Cursor:
 
 ```text
-Create Kubernetes YAML for a quick local practice app:
-- Namespace: lens-poc
-- Deployment: nginx, 2 replicas
-- Service: ClusterIP on port 80
-- Add labels consistently
+Create a minimal ASP.NET Core (.NET 8) Web API microservice named Demo.CustomerApi.
 
-Output: a single file named k8s-lens-poc.yaml
-Also include the exact kubectl commands to apply and verify.
+Requirements:
+- Endpoint: GET /customers/{id} returns JSON { id, name, email, message }
+- Read `DEMO_MESSAGE` from environment variable and return it as `message`
+- Add structured logging (ILogger) including a log line per request
+- Add health endpoints:
+  - GET /health/live returns 200 OK with { status: "live" }
+  - GET /health/ready returns 200 OK with { status: "ready" }
+- Listen on port 8080 (so container + k8s are consistent)
+- Keep it simple and runnable locally
+
+Also:
+- Provide the exact dotnet commands to create/build/run it
+- Keep folder structure clean
 ```
 
-Apply and verify (example commands):
+Run locally:
 
-- `kubectl apply -f k8s-lens-poc.yaml`
-- `kubectl get ns`
-- `kubectl get pods -n lens-poc`
-- `kubectl get svc -n lens-poc`
+- `dotnet run`
+- Test: `http://localhost:8080/customers/1`
+
+#### Cursor prompt (explain the microservice)
+
+```text
+Explain this microservice like I’m new to ASP.NET Core.
+Explain request flow, routing, dependency injection (if any), and logging.
+Write the explanation as markdown notes for my POC.
+```
 
 ---
 
-### A2) Add the local cluster in Lens and learn the navigation
+### A2) Dockerize the microservice
+
+#### Cursor prompt (Dockerfile)
+
+```text
+Create a production-ready Dockerfile for this ASP.NET Core microservice.
+
+Requirements:
+- Multi-stage build
+- Final image runs as non-root if possible
+- Expose port 8080
+- Works with ASP.NET Core .NET 8
+- Keep image small
+
+Also provide:
+- docker build command
+- docker run command mapping 8080:8080
+- a quick curl test to validate the container
+```
+
+Build + run:
+
+- `docker build -t demo-customer-api:local .`
+- `docker run --rm -p 8080:8080 -e DEMO_MESSAGE="hello-from-docker" demo-customer-api:local`
+- Test: `http://localhost:8080/customers/1`
+
+#### Cursor prompt (container concept → AKS)
+
+```text
+Explain image vs container, and why AKS needs images.
+Relate this to "pods run containers" and why we standardize ports like 8080.
+Keep it short and practical.
+```
+
+---
+
+### A3) Deploy to local Kubernetes (AKS-like)
+
+We will deploy:
+
+- Namespace: `lens-poc`
+- Deployment: 3 replicas
+- Service: ClusterIP (we’ll use port-forward from Lens)
+- Probes: liveness + readiness hitting `/health/live` and `/health/ready`
+- ConfigMap: sets `DEMO_MESSAGE`
+
+#### Important: make the image available to your local cluster
+
+Pick the path that matches your setup:
+
+- **Docker Desktop Kubernetes**: usually you can use the local image directly after `docker build`.
+- **kind**: you must load the image, e.g. `kind load docker-image demo-customer-api:local`
+
+#### Cursor prompt (Kubernetes YAML from scratch)
+
+```text
+Create Kubernetes manifests for my microservice.
+
+Constraints:
+- Namespace: lens-poc
+- Deployment name: demo-customer-api
+- Replicas: 3
+- Container image: demo-customer-api:local
+- Container port: 8080
+- Add livenessProbe: GET /health/live on 8080
+- Add readinessProbe: GET /health/ready on 8080
+- Service: ClusterIP exposing port 8080 -> targetPort 8080
+- ConfigMap: demo-customer-api-config with DEMO_MESSAGE="hello-from-k8s"
+- Inject DEMO_MESSAGE env var from ConfigMap
+- Add standard labels: app=demo-customer-api
+
+Output:
+- k8s/namespace.yaml
+- k8s/configmap.yaml
+- k8s/deployment.yaml
+- k8s/service.yaml
+
+Also provide the exact kubectl apply commands and verification commands.
+```
+
+Apply + verify (examples):
+
+- `kubectl apply -f k8s/namespace.yaml`
+- `kubectl apply -f k8s/configmap.yaml`
+- `kubectl apply -f k8s/deployment.yaml`
+- `kubectl apply -f k8s/service.yaml`
+- `kubectl get all -n lens-poc`
+
+---
+
+### A4) Use Lens with your local cluster (the main learning)
 
 In Lens:
 
@@ -79,49 +189,67 @@ In Lens:
 - Select your local cluster
 - Pin it to **Hotbar** (attachment/pin icon)
 
-What to practice in Lens (local cluster):
+Then:
 
-- **Namespaces**: find your namespace list, filter to `lens-poc`
-- **Workloads**: locate the Deployment and Pods
-- **Pods → Logs**: open logs and follow output live
+- Go to **Workloads** → filter/select namespace `lens-poc`
+- Go to **Pods** → pick a pod → open **Logs**
+- Confirm you see your request logs when you hit `GET /customers/1`
+
+#### Port-forward from Lens (practice)
+
+- In Lens: **Pods** → select pod → container/ports → **Forward…**
+- Set local port (e.g. `8081`) → Start
+- Open `http://localhost:8081/customers/1`
 
 #### Cursor prompt (Lens UI walkthrough notes)
 
 ```text
-I’m new to Lens. Based on this checklist:
-- Catalog -> Clusters
-- Add to Hotbar
-- Workloads
-- Pods
-- Logs
-- Namespaces
-
-Write a 1-page "Lens UI map" cheat-sheet for me (markdown).
-Keep it action oriented: "click X then Y, what to look for, common mistakes".
+I deployed a microservice to Kubernetes and I’m using Lens.
+Write a 1-page cheat-sheet (markdown) for:
+- finding the deployment/pods in a namespace
+- viewing logs and spotting errors
+- port-forwarding from Lens to my service
+- common mistakes that make Lens look "empty"
 ```
 
 ---
 
-### A3) Port-forward from Lens (the “daily life” skill)
+### A5) Scale + crash simulation (so logs/restarts make sense)
 
-In Lens (local cluster):
+Scale:
 
-- Go to **Pods**
-- Select a pod in `lens-poc`
-- Find container/ports area and use **Forward…**
-- Change random local port to something you want (e.g., `8080`)
-- Start forward and open in browser: `http://localhost:8080`
+- `kubectl scale deployment demo-customer-api -n lens-poc --replicas=5`
 
-#### Cursor prompt (explain port-forward like I’m new)
+Crash simulation idea (simple):
+
+- Update code so `/customers/99` throws an exception (or exits), rebuild image, redeploy.
+- Observe pod restarts and read logs in Lens.
+
+#### Cursor prompt (crash and observe)
 
 ```text
-Explain Kubernetes port-forward in simple terms.
+Help me simulate a failure in this API so I can observe restarts in Kubernetes and Lens.
 
-Include:
-- Why it exists (ClusterIP not reachable)
-- What traffic path looks like
-- How Lens port-forward compares to kubectl port-forward
-- Common issues (port already in use, wrong namespace, wrong pod)
+Give me:
+- a safe way to trigger an exception on /customers/99
+- how to rebuild the docker image and roll the deployment
+- what I should look for in:
+  - kubectl get pods
+  - kubectl describe pod
+  - Lens pod details + logs
+```
+
+---
+
+### A6) (Optional) Add per-request correlation in logs
+
+#### Cursor prompt (logging upgrade)
+
+```text
+Upgrade the API logging so each request includes a correlation id.
+If no header is provided, generate one.
+Return it in response headers too.
+Explain how this helps when reading logs in Lens across multiple replicas.
 ```
 
 ---
