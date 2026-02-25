@@ -7,7 +7,8 @@ This folder contains resources for understanding and implementing SonarQube code
 1. **SonarQube-POC-Guide.md** - Complete step-by-step guide with Cursor prompts
 2. **SonarQube-POC-Notes-Template.md** - Template for documenting your POC journey
 3. **Async-Processing-ServiceBus-POC-Guide.md** - MSMQ-style async flow POC with Cursor prompts
-4. **README.md** - This file
+4. **Local-Kubernetes-AKS-Mock-POC-Guide.md** - Docker + K8s + scaling/logs/crash recovery mini POC
+5. **README.md** - This file
 
 ## 🎯 Purpose
 
