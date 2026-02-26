@@ -1,0 +1,39 @@
+# Build results
+**/bin/
+**/obj/
+
+# Test results / coverage
+**/TestResults/
+**/*.trx
+**/*.coverage
+**/*.coveragexml
+**/coverage*/
+
+# NuGet / paket (optional caches)
+**/packages/
+**/*.nupkg
+**/artifacts/
+
+# Visual Studio
+.vs/
+**/*.user
+**/*.rsuser
+**/*.suo
+**/*.userosscache
+**/*.sln.docstates
+
+# Rider / ReSharper
+.idea/
+**/_ReSharper*/
+**/*.DotSettings.user
+
+# VS Code
+.vscode/
+
+# OS / miscellaneous
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.log
+
