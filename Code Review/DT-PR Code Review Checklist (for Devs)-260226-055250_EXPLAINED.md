@@ -52,6 +52,78 @@ This is a practical “how to not get your PR bounced” guide. For each checkli
     - Never return `null` for domain/response.
     - Convert “not found/invalid” into domain/service exceptions that your API layer maps to correct HTTP results.
 
+Example (repository returns `null`, service throws, controller returns HTTP — never `null`):
+
+```csharp
+// Domain
+public sealed record Customer(long Id, string FirstName, string LastName);
+
+// Meaningful service/domain exception
+public sealed class NotFoundException : Exception
+{
+    public NotFoundException(string message) : base(message) { }
+}
+
+// Repository contract (allowed to return null for single-get)
+public interface ICustomerRepository
+{
+    Task<Customer?> FindCustomerAsync(long customerId, CancellationToken cancel);
+    Task<IEnumerable<Customer>> GetCustomersAsync(int skip, int take, CancellationToken cancel);
+}
+
+// Repository implementation (NEVER throws; collections are never null)
+public sealed class CustomerRepository : ICustomerRepository
+{
+    public Task<Customer?> FindCustomerAsync(long customerId, CancellationToken cancel)
+    {
+        Customer? customer = null; // not found
+        return Task.FromResult(customer);
+    }
+
+    public Task<IEnumerable<Customer>> GetCustomersAsync(int skip, int take, CancellationToken cancel)
+        => Task.FromResult(Enumerable.Empty<Customer>());
+}
+
+// Service (NEVER returns null; converts "not found" into meaningful exception)
+public interface ICustomerService
+{
+    Task<Customer> GetCustomerAsync(long customerId, CancellationToken cancel);
+}
+
+public sealed class CustomerService : ICustomerService
+{
+    private readonly ICustomerRepository _repo;
+
+    public CustomerService(ICustomerRepository repo) => _repo = repo;
+
+    public async Task<Customer> GetCustomerAsync(long customerId, CancellationToken cancel)
+    {
+        var customer = await _repo.FindCustomerAsync(customerId, cancel);
+        if (customer is null)
+            throw new NotFoundException($"Customer {customerId} was not found.");
+
+        return customer;
+    }
+}
+
+// Controller (returns HTTP; relies on global exception handling/middleware for NotFoundException -> 404)
+[ApiController]
+[Route("api/customers")]
+public sealed class CustomersController : ControllerBase
+{
+    private readonly ICustomerService _service;
+
+    public CustomersController(ICustomerService service) => _service = service;
+
+    [HttpGet("{id:long}")]
+    public async Task<ActionResult<Customer>> Get(long id, CancellationToken cancel)
+    {
+        var customer = await _service.GetCustomerAsync(id, cancel);
+        return Ok(customer);
+    }
+}
+```
+
 ---
 
 ## 4) Use Domain objects between tiers (not DTOs/entities)
