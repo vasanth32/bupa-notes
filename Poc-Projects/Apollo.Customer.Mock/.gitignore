@@ -1,0 +1,51 @@
+# Build outputs
+**/bin/
+**/obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+
+# Rider / JetBrains
+.idea/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# NuGet
+**/packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Logs
+*.log
+
+# Test results / coverage artifacts
+**/TestResults/
+**/coverage*.xml
+**/coverage*.json
+
+# SonarScanner artifacts
+.sonarqube/
+.scannerwork/
+
+# ASP.NET Core
+**/appsettings.*.local.json
+**/appsettings.*.secrets.json
+
+# EF Core
+*.db
+*.db-shm
+*.db-wal
+

@@ -1,0 +1,6 @@
+@Apollo.Customer.Mock.WebApi_HostAddress = http://localhost:5144
+
+GET {{Apollo.Customer.Mock.WebApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
