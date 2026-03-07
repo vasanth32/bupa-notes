@@ -105,7 +105,7 @@ Ensure:
 - Add integration tests
 - Coverage >= 90%
 
-Explain checklist compliance after implementation.
+Explain checklist compliance after implementation in progress md.
 ```
 
 ---
@@ -195,6 +195,7 @@ Then:
 - Show secure version
 ```
 
+---
 
 # 📚 Phase 6 – PR Checklist Deep Understanding (Day 4–5)
 

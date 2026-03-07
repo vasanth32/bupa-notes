@@ -197,4 +197,174 @@ Swagger is enabled in Development.
 #### 2) Start SonarQube container
 On this machine, **port 9000 is reserved by Windows (PID 4 / System)**, so we use **9001** on the host.
 
-- If container already exists:
+##### Option A (recommended): create a persistent SonarQube instance (keeps your projects/tokens)
+Run these once (creates volumes) and reuse forever:
+
+```bash
+docker run -d --name sonarqube -p 9001:9000 -v sonarqube_data:/opt/sonarqube/data -v sonarqube_extensions:/opt/sonarqube/extensions -v sonarqube_logs:/opt/sonarqube/logs sonarqube:lts
+```
+
+Then open:
+- `http://localhost:9001`
+
+##### Option B (quick/temporary): no volumes (data is lost if you delete the container)
+
+```bash
+docker run -d --name sonarqube -p 9001:9000 sonarqube:lts
+```
+
+### 🔁 Start / Stop / Restart SonarQube next time
+
+#### ▶️ Start (if it already exists)
+
+```bash
+docker start sonarqube
+```
+
+#### ⏹️ Stop
+
+```bash
+docker stop sonarqube
+```
+
+#### 🔄 Restart (stop + start)
+
+```bash
+docker restart sonarqube
+```
+
+#### ✅ Confirm it’s running + which port
+
+```bash
+docker ps --filter "name=sonarqube"
+```
+
+### 🔐 Login + tokens (so scans can authenticate)
+
+#### Default login (fresh install)
+- **Username**: `admin`
+- **Password**: `admin`
+
+You will be forced to change the password after first login.
+
+#### If you forgot the password 😅
+SonarQube Community (Docker) doesn’t have a simple “forgot password” flow by default. The easiest reset is to **delete the container + volumes** and start fresh.
+
+⚠️ This deletes all SonarQube data (projects, tokens, history).
+
+```bash
+docker rm -f sonarqube
+docker volume rm sonarqube_data sonarqube_extensions sonarqube_logs
+```
+
+Then run the “Option A” command again and login with `admin/admin`.
+
+#### Create a token (recommended for scanning)
+In the SonarQube UI:
+- Click your avatar (top-right) → **My Account**
+- Go to **Security**
+- Under **Tokens**:
+  - Name: `apollo-local`
+  - Token type: **Project Analysis Token** (best for scanning this one project)
+  - Generate → copy the `sqp_...` token (save it somewhere secure)
+
+### 🧪 Run analysis for this solution (SonarScanner for .NET)
+Run these commands from solution root:
+`d:\HexawareProjects\BUPA\Poc-Projects\Apollo.Customer.Mock`
+
+> Replace `<TOKEN>` with your `sqp_...` token.
+
+```bash
+dotnet tool install --global dotnet-sonarscanner
+
+dotnet sonarscanner begin /k:"Apollo.Customer.Mock" /d:sonar.host.url="http://localhost:9001" /d:sonar.token="<TOKEN>"
+dotnet build .\Apollo.Customer.Mock.sln -c Release
+dotnet sonarscanner end /d:sonar.token="<TOKEN>"
+```
+
+Then refresh the project page in SonarQube to see results.
+
+### 🧯 Troubleshooting (common issues)
+
+#### ❌ “Bind for 0.0.0.0:9000 … forbidden” / “ports are not available”
+- ✅ Use **9001:9000** instead of 9000:9000 (because PID 4 uses 9000 on this machine).
+
+#### ❌ Browser says “This page can’t be found” / “ERR_EMPTY_RESPONSE”
+- Check container is running: `docker ps --filter "name=sonarqube"`
+- Wait 1–2 minutes after starting; SonarQube takes time to boot.
+- Check logs: `docker logs -f sonarqube`
+
+#### ❌ SonarScanner says “Not authorized”
+This usually means one of these:
+- token is wrong / expired / copied incorrectly
+- using the wrong token type (use **Project Analysis Token** or **User Token**)
+- you forgot to pass the token in **both** `begin` and `end`
+- wrong host URL (ensure it is `http://localhost:9001`)
+
+### ⚠️ “You’re running a version of SonarQube that is no longer active”
+This is a **support/EOL warning** from SonarSource. It does not always block scanning, but you should upgrade when possible.
+
+**Simple upgrade approach (local Docker):**
+- Stop + remove container, then run again using `sonarqube:lts` (or a newer tag your team approves).
+- If you used persistent volumes, keep them if the upgrade path supports it; otherwise recreate clean.
+
+---
+
+## 🔒 Checkmarx (security scanning) — how to use with this project
+Checkmarx is a **security scanner** (SAST) that looks for vulnerabilities in source code (SQL injection, insecure deserialization, weak crypto, etc.). Think of it as:
+- **SonarQube** = code quality + maintainability + some security rules 🧼
+- **Checkmarx** = security-first scanning 🔐
+
+### ✅ What you should scan in this repo
+- ✅ `src/` (main code — most important)
+- ✅ `tests/` (optional; scan if your org policy requires)
+- ❌ Don’t scan generated folders: `bin/`, `obj/`, `.sonarqube/`, `TestResults/` (already in `.gitignore`)
+
+### 🧭 Two ways Checkmarx is usually used (choose based on your company setup)
+
+#### Option 1: CI/CD scan (most common in enterprises) 🏗️✅
+This means **you don’t run it manually**. The pipeline scans when you push code.
+
+Typical flow:
+1. You push PR/branch to repo
+2. Pipeline runs Checkmarx step
+3. If findings are high severity, pipeline may fail (“quality gate”)
+4. You fix issues and re-run pipeline
+
+What you need to do for this project:
+- **Ask your DevSecOps/team** which Checkmarx product you use:
+  - **Checkmarx One (CxOne)** (modern SaaS) or
+  - **CxSAST (on-prem)** (older style)
+- Get the required pipeline values (usually provided as secret variables):
+  - server URL / tenant
+  - API key / client id-secret / token
+  - project name (use `Apollo.Customer.Mock`)
+- Add/verify pipeline step in your CI (Azure DevOps / Jenkins / GitHub Actions)
+
+#### Option 2: Local scan (only if your org allows it) 💻
+You run a CLI tool that sends code to Checkmarx and downloads results.
+
+**Important:** The exact commands depend on which product your org uses.
+- For **Checkmarx One** you usually use the **Cx CLI** (`cx ...`)
+- For **CxSAST** you may use different tooling/CLI
+
+Generic example pattern (CxOne-style):
+
+```bash
+# 1) authenticate (method depends on your org)
+# 2) scan this folder (solution root)
+cx scan create --project-name "Apollo.Customer.Mock" --source "."
+```
+
+### 🧯 What to do after a scan (how to work with findings)
+1. **Open results** (web portal or exported report)
+2. Sort by **Severity** (Critical/High first)
+3. For each finding:
+   - Understand the vulnerable code path
+   - Fix it (or justify false positive with a comment/ticket if policy allows)
+4. Re-scan until the project passes your org’s policy
+
+### 🧩 Where this fits in our checklist mindset
+- **Repository layer**: make sure DB calls are parameterized and safe (EF Core helps here) 🗄️✅
+- **Web API layer**: validate input + don’t leak internal errors (we already map exceptions globally) 🌐✅
+- **Secrets**: never commit tokens/connection strings; keep secrets in env/user-secrets 🔑✅
